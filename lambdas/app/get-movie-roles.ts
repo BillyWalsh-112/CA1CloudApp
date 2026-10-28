@@ -31,6 +31,21 @@ if (actorParam !== undefined && actorId === undefined) {
 }
 
   try {
+
+    const movie = await ddb.send(         // a movie record uses the movie key for both PK and SK                                       
+      new GetCommand({
+        TableName: tableName,
+        Key: { PK: movieKey(movieId), SK: movieKey(movieId)},
+      })
+    );
+    
+if (!movie.Item) {
+  return response(404, { message: `Movie ${movieId} not found`}) // return 404 for a missing movie, whether or not an actor was supplied.          
+}
+
+
+
+ // a role record uses the movie key as PK and the actor key as SK
     if (actorId !== undefined) {
   const result = await ddb.send(
     new GetCommand({
@@ -38,7 +53,7 @@ if (actorParam !== undefined && actorId === undefined) {
       Key: { PK: movieKey(movieId), SK: actorKey(actorId) },
     })
   );
-
+// keps the information in an array, even when the actor has no role in the movie
   return response(200, {
     data: result.Item ? [toRole(result.Item)] : [],
   });
