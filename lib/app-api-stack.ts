@@ -50,6 +50,8 @@ export class AppApiStack extends cdk.Stack {
 
     table.grantReadData(getMovieRolesFn);
     table.grantReadData(getActorFn);
+    table.grantWriteData(addMovieRoleFn); // allows the post lambda to save new movies to the db
+    table.grant(addMovieRoleFn, 'dynamodb:ConditionCheckItem'); // allows the post lambda to check the movie and actor exist
 
     // Sample data, written once when the stack is created.
     const items = seedItems();
@@ -91,6 +93,22 @@ export class AppApiStack extends cdk.Stack {
       authorizer: userAuthorizer,
       authorizationType: apig.AuthorizationType.CUSTOM,
     };
+
+    // API Gateway generates the administrator API key
+const adminKey = api.addApiKey('AdminApiKey');
+
+// Create a usage plan for the administrator
+const adminPlan = api.addUsagePlan('AdminUsagePlan');
+
+// Add the administrator key to the usage plan
+adminPlan.addApiKey(adminKey);
+
+// Connect the usage plan to the deployed API stage
+adminPlan.addApiStage({
+  stage: api.deploymentStage,
+});
+
+
     // Routes
     const moviesResource = api.root.addResource('movies');
 
@@ -106,9 +124,24 @@ export class AppApiStack extends cdk.Stack {
     userAuth
     );
 
+// Add a POST endpoint to create a new movie role
+const addMovieRolesResource = moviesResource.addResource('roles');
+
+addMovieRolesResource.addMethod(
+  'POST',
+
+  // Connect POST to the Lambda that saves movie roles
+  new apig.LambdaIntegration(addMovieRoleFn),
+
+  // Require the administrator API key
+  { apiKeyRequired: true }
+);
+
     api.root
       .addResource('actors')
       .addResource('{actorID}')
       .addMethod('GET', new apig.LambdaIntegration(getActorFn), userAuth);
   }
 }
+
+
